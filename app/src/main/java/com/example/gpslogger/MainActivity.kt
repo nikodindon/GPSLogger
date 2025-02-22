@@ -17,6 +17,12 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.FileProvider
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
+import org.osmdroid.config.Configuration
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.Marker
+import org.osmdroid.views.overlay.Polyline
 import java.io.File
 import java.io.FileWriter
 import java.text.SimpleDateFormat
@@ -32,6 +38,8 @@ class MainActivity : AppCompatActivity() {
     private var isRecording = false
     private lateinit var startStopButton: Button
     private lateinit var shareButton: ImageButton
+    private lateinit var map: MapView
+    private val points = mutableListOf<GeoPoint>() // Liste pour les points GPS
 
     private val locationRunnable = object : Runnable {
         override fun run() {
@@ -44,13 +52,22 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Initialiser la configuration osmdroid
+        Configuration.getInstance().load(this, getPreferences(MODE_PRIVATE))
         setContentView(R.layout.activity_main)
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         startStopButton = findViewById(R.id.start_stop_button)
         shareButton = findViewById(R.id.share_button)
+        map = findViewById(R.id.map)
 
-        // Configurer le bouton Start/Stop
+        // Configurer la carte osmdroid
+        map.setTileSource(TileSourceFactory.MAPNIK) // Source de tuiles OSM
+        map.setBuiltInZoomControls(true)
+        map.setMultiTouchControls(true)
+        map.controller.setZoom(15.0) // Zoom initial
+        map.controller.setCenter(GeoPoint(0.0, 0.0)) // Position par défaut
+
         startStopButton.setOnClickListener {
             if (isRecording) {
                 stopRecording()
@@ -63,10 +80,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Configurer le bouton de partage
-        shareButton.setOnClickListener {
-            shareCsvFile()
-        }
+        shareButton.setOnClickListener { shareCsvFile() }
     }
 
     private fun checkPermissions(): Boolean {
@@ -126,6 +140,24 @@ class MainActivity : AppCompatActivity() {
                     val longitude = it.longitude
                     val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
                     saveToCsv(latitude, longitude, timestamp)
+
+                    // Ajouter le point à la carte osmdroid
+                    val point = GeoPoint(latitude, longitude)
+                    points.add(point)
+                    val marker = Marker(map)
+                    marker.position = point
+                    marker.title = timestamp
+                    map.overlays.add(marker)
+
+                    if (points.size > 1) {
+                        val polyline = Polyline()
+                        polyline.setPoints(points)
+                        polyline.color = 0xFF0000FF.toInt() // Ligne bleue
+                        map.overlays.add(polyline)
+                    }
+                    map.controller.setCenter(point)
+                    map.invalidate() // Rafraîchir la carte
+
                     Toast.makeText(this, "Position : $latitude, $longitude", Toast.LENGTH_SHORT).show()
                 } ?: Toast.makeText(this, "Position indisponible", Toast.LENGTH_SHORT).show()
             }
@@ -154,11 +186,7 @@ class MainActivity : AppCompatActivity() {
     private fun shareCsvFile() {
         val file = File(getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), csvFileName)
         if (file.exists()) {
-            val uri: Uri = FileProvider.getUriForFile(
-                this,
-                "${packageName}.fileprovider",
-                file
-            )
+            val uri: Uri = FileProvider.getUriForFile(this, "${packageName}.fileprovider", file)
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                 type = "text/csv"
                 putExtra(Intent.EXTRA_STREAM, uri)
@@ -175,5 +203,15 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacks(locationRunnable)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        map.onResume() // Nécessaire pour osmdroid
+    }
+
+    override fun onPause() {
+        super.onPause()
+        map.onPause() // Nécessaire pour osmdroid
     }
 }

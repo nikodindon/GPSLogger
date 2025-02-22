@@ -5,7 +5,7 @@
     android:orientation="vertical"
     android:background="#000000">
 
-    <!-- Titre "GPSLogger" en haut -->
+    <!-- Titre "GPSLogger" -->
     <TextView
         android:id="@+id/title_text"
         android:layout_width="wrap_content"
@@ -17,8 +17,9 @@
         android:layout_gravity="center_horizontal"
         android:paddingTop="16dp" />
 
-    <!-- Espace flexible pour centrer le bouton Start/Stop -->
-    <Space
+    <!-- Carte osmdroid -->
+    <org.osmdroid.views.MapView
+        android:id="@+id/map"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1" />
@@ -35,13 +36,7 @@
         android:padding="16dp"
         android:layout_gravity="center_horizontal" />
 
-    <!-- Espace flexible -->
-    <Space
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
-
-    <!-- Bouton de partage avec icône -->
+    <!-- Bouton de partage -->
     <ImageButton
         android:id="@+id/share_button"
         android:layout_width="wrap_content"
@@ -51,5 +46,4 @@
         android:layout_gravity="center_horizontal"
         android:padding="16dp"
         android:contentDescription="Partager le fichier CSV" />
-
 </LinearLayout>
