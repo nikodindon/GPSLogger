@@ -1,19 +1,55 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/main"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".MainActivity">
+    android:orientation="vertical"
+    android:background="#000000">
 
+    <!-- Titre "GPSLogger" en haut -->
     <TextView
+        android:id="@+id/title_text"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Hello World!"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        android:text="GPSLogger"
+        android:textSize="36sp"
+        android:textColor="#FFFFFF"
+        android:gravity="center"
+        android:layout_gravity="center_horizontal"
+        android:paddingTop="16dp" />
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+    <!-- Espace flexible pour centrer le bouton Start/Stop -->
+    <Space
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <!-- Bouton Start/Stop -->
+    <Button
+        android:id="@+id/start_stop_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Start"
+        android:textSize="18sp"
+        android:background="#FFFFFF"
+        android:textColor="#000000"
+        android:padding="16dp"
+        android:layout_gravity="center_horizontal" />
+
+    <!-- Espace flexible -->
+    <Space
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <!-- Bouton de partage avec icône -->
+    <ImageButton
+        android:id="@+id/share_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@android:drawable/ic_menu_share"
+        android:background="?android:attr/selectableItemBackground"
+        android:layout_gravity="center_horizontal"
+        android:padding="16dp"
+        android:contentDescription="Partager le fichier CSV" />
+
+</LinearLayout>
