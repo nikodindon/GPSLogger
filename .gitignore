@@ -1,0 +1,13 @@
+# Fichiers générés par Android Studio
+*.iml
+.idea/
+build/
+.gradle/
+local.properties
+
+# Fichiers de débogage
+*.apk
+*.ap_
+
+# Autres
+.DS_Store  # Si tu es sur Mac
