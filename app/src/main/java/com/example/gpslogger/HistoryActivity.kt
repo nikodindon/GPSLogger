@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
 import android.widget.Button
+import android.widget.ImageButton
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
@@ -22,6 +23,7 @@ class HistoryActivity : AppCompatActivity() {
 
     private lateinit var recyclerView: RecyclerView
     private lateinit var shareAllButton: Button
+    private lateinit var backButton: ImageButton // Nouveau bouton
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -29,6 +31,7 @@ class HistoryActivity : AppCompatActivity() {
 
         recyclerView = findViewById(R.id.history_recycler_view)
         shareAllButton = findViewById(R.id.share_all_button)
+        backButton = findViewById(R.id.back_button)
 
         val documentsDir = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS)
         val musicDir = getExternalFilesDir(Environment.DIRECTORY_MUSIC)
@@ -45,8 +48,12 @@ class HistoryActivity : AppCompatActivity() {
             if (files.isNotEmpty()) {
                 shareAllFilesAsZip(files)
             } else {
-                Toast.makeText(this, "Aucun fichier à zipper", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "No files to zip", Toast.LENGTH_SHORT).show()
             }
+        }
+
+        backButton.setOnClickListener {
+            finish() // Retour à l’écran précédent (MainActivity)
         }
     }
 
@@ -69,8 +76,8 @@ class HistoryActivity : AppCompatActivity() {
         val shareIntent = Intent(Intent.ACTION_SEND).apply {
             type = "application/zip"
             putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_SUBJECT, "Historique GPS Logger")
-            putExtra(Intent.EXTRA_TEXT, "Voici tous mes fichiers CSV, KML, notes textuelles, vocales, et instantanés zippés.")
+            putExtra(Intent.EXTRA_SUBJECT, "GPS Logger History")
+            putExtra(Intent.EXTRA_TEXT, "Here are all my CSV, KML, text notes, audio notes, and snapshots zipped.")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         startActivity(Intent.createChooser(shareIntent, "Share all in zip file?"))

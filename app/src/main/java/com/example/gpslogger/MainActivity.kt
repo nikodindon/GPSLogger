@@ -12,8 +12,8 @@ import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.view.View
-import android.widget.Button
 import android.widget.ImageButton
+import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -43,7 +43,7 @@ class MainActivity : AppCompatActivity() {
     private val timerHandler = Handler(Looper.getMainLooper())
     private val LOCATION_PERMISSION_REQUEST_CODE = 1
     private var isRecording = false
-    private lateinit var startStopButton: Button
+    private lateinit var startStopButton: ImageButton
     private lateinit var shareButton: ImageButton
     private lateinit var backButton: ImageButton
     private lateinit var snapshotButton: ImageButton
@@ -145,7 +145,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 startActivity(intent)
             } else {
-                Toast.makeText(this, "Aucune position enregistrée pour ajouter une note", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "No position recorded to add a note", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -156,7 +156,7 @@ class MainActivity : AppCompatActivity() {
                 map.controller.setZoom(15.0)
                 map.invalidate()
             } else {
-                Toast.makeText(this, "Aucune position enregistrée", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "No position recorded", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -164,10 +164,10 @@ class MainActivity : AppCompatActivity() {
             detailsVisible = !detailsVisible
             if (detailsVisible) {
                 pointsRecyclerView.visibility = View.VISIBLE
-                detailButton.text = "Cacher Détails"
+                detailButton.text = "Hide Details"
             } else {
                 pointsRecyclerView.visibility = View.GONE
-                detailButton.text = "Détail"
+                detailButton.text = "Detail"
             }
         }
     }
@@ -199,13 +199,13 @@ class MainActivity : AppCompatActivity() {
         if (requestCode == LOCATION_PERMISSION_REQUEST_CODE && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             startRecording()
         } else {
-            Toast.makeText(this, "Permissions refusées", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Permissions denied", Toast.LENGTH_LONG).show()
         }
     }
 
     private fun startRecording() {
         isRecording = true
-        startStopButton.text = "Stop"
+        startStopButton.setImageResource(R.drawable.ic_stop)
         startTime = System.currentTimeMillis()
         points.clear()
         pointDataList.clear()
@@ -219,24 +219,24 @@ class MainActivity : AppCompatActivity() {
         timerHandler.post(timerRunnable)
 
         val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
-        if (useCsv) saveToCsv("Démarrage de la marche $timestamp", "", "")
+        if (useCsv) saveToCsv("Start of the walk $timestamp", "", "")
         if (useKml) startKml(timestamp)
-        Toast.makeText(this, "Enregistrement démarré", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Recording started", Toast.LENGTH_SHORT).show()
     }
 
     private fun stopRecording() {
         isRecording = false
-        startStopButton.text = "Start"
+        startStopButton.setImageResource(R.drawable.ic_play)
         locationHandler.removeCallbacks(locationRunnable)
         timerHandler.removeCallbacks(timerRunnable)
 
         val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
         if (useCsv) {
-            saveToCsv("Arrêt de la marche $timestamp", "", "")
+            saveToCsv("End of the walk $timestamp", "", "")
             saveToCsv("", "", "")
         }
         if (useKml) stopKml(timestamp)
-        Toast.makeText(this, "Enregistrement arrêté", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Recording stopped", Toast.LENGTH_SHORT).show()
     }
 
     private fun getLocation() {
@@ -285,11 +285,11 @@ class MainActivity : AppCompatActivity() {
                     map.controller.setCenter(point)
                     map.invalidate()
 
-                    Toast.makeText(this, "Position : $latitude, $longitude", Toast.LENGTH_SHORT).show()
-                } ?: Toast.makeText(this, "Position indisponible", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Position: $latitude, $longitude", Toast.LENGTH_SHORT).show()
+                } ?: Toast.makeText(this, "Position unavailable", Toast.LENGTH_SHORT).show()
             }
             .addOnFailureListener {
-                Toast.makeText(this, "Erreur : ${it.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Error: ${it.message}", Toast.LENGTH_SHORT).show()
             }
     }
 
@@ -313,24 +313,21 @@ class MainActivity : AppCompatActivity() {
         val avgSpeedKmh = if (speedCount > 0) (totalSpeed / speedCount) * 3.6f else 0f
         val altitude = if (pointDataList.isNotEmpty()) pointDataList.last().altitude else 0.0
 
-        statsText.text = "Distance : %.2f km\nDurée : %02d:%02d\nVitesse : %.1f km/h\nVmax : %.1f km/h\nVmoy : %.1f km/h\nAltitude : %.1f m"
+        statsText.text = "Distance: %.2f km\nDuration: %02d:%02d\nSpeed: %.1f km/h\nVmax: %.1f km/h\nVavg: %.1f km/h\nAltitude: %.1f m"
             .format(distanceKm, minutes, seconds, currentSpeedKmh, maxSpeedKmh, avgSpeedKmh, altitude)
     }
 
     private fun shareMapSnapshot() {
         try {
-            // Vérifie que la carte est prête
             if (map.width <= 0 || map.height <= 0) {
-                Toast.makeText(this, "La carte n’est pas encore prête", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Map is not yet ready", Toast.LENGTH_SHORT).show()
                 return
             }
 
-            // Capture manuelle de la carte dans un Bitmap
             val bitmap = Bitmap.createBitmap(map.width, map.height, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
             map.draw(canvas)
 
-            // Sauvegarde dans DIRECTORY_PICTURES pour l’historique
             val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
             val file = File(getExternalFilesDir(Environment.DIRECTORY_PICTURES), "GPSLogger_Snapshot_$timestamp.png")
             FileOutputStream(file).use { out ->
@@ -338,26 +335,25 @@ class MainActivity : AppCompatActivity() {
                 out.flush()
             }
 
-            // Partage via Intent
             val uri = FileProvider.getUriForFile(this, "${packageName}.fileprovider", file)
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                 type = "image/png"
                 putExtra(Intent.EXTRA_STREAM, uri)
-                putExtra(Intent.EXTRA_SUBJECT, "Instantané GPS Logger")
-                putExtra(Intent.EXTRA_TEXT, "Voici un instantané de mon parcours actuel.")
+                putExtra(Intent.EXTRA_SUBJECT, "GPS Logger Snapshot")
+                putExtra(Intent.EXTRA_TEXT, "Here is a snapshot of my current journey.")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            startActivity(Intent.createChooser(shareIntent, "Partager l’instantané de la carte"))
+            startActivity(Intent.createChooser(shareIntent, "Share map snapshot"))
         } catch (e: Exception) {
             e.printStackTrace()
-            Toast.makeText(this, "Erreur lors du partage : ${e.message}", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Error sharing: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 
     private fun getFileName(extension: String): String {
         val dateFormat = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
         val currentDate = dateFormat.format(Date())
-        return "marche du $currentDate.$extension"
+        return "walk_$currentDate.$extension"
     }
 
     private fun saveToCsv(timestamp: String, latitude: String, longitude: String) {
@@ -373,7 +369,7 @@ class MainActivity : AppCompatActivity() {
             writer.close()
         } catch (e: Exception) {
             e.printStackTrace()
-            Toast.makeText(this, "Erreur écriture CSV : ${e.message}", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Error writing CSV: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -395,19 +391,19 @@ class MainActivity : AppCompatActivity() {
                 writer.append("    </Style>\n")
                 writer.append("    <Placemark>\n")
                 writer.append("      <name>Track Start</name>\n")
-                writer.append("      <description>Démarrage de la marche $timestamp</description>\n")
+                writer.append("      <description>Start of the walk $timestamp</description>\n")
                 writer.append("      <styleUrl>#trackStyle</styleUrl>\n")
                 writer.append("      <LineString>\n")
                 writer.append("        <coordinates>\n")
             } else {
                 writer.append("\n")
-                writer.append("<!-- Démarrage de la marche $timestamp -->\n")
+                writer.append("<!-- Start of the walk $timestamp -->\n")
             }
             writer.flush()
             writer.close()
         } catch (e: Exception) {
             e.printStackTrace()
-            Toast.makeText(this, "Erreur écriture KML : ${e.message}", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Error writing KML: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -420,7 +416,7 @@ class MainActivity : AppCompatActivity() {
             writer.close()
         } catch (e: Exception) {
             e.printStackTrace()
-            Toast.makeText(this, "Erreur écriture KML : ${e.message}", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Error writing KML: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -431,7 +427,7 @@ class MainActivity : AppCompatActivity() {
             writer.append("        </coordinates>\n")
             writer.append("      </LineString>\n")
             writer.append("    </Placemark>\n")
-            writer.append("<!-- Arrêt de la marche $timestamp -->\n")
+            writer.append("<!-- End of the walk $timestamp -->\n")
             if (!isRecording) {
                 writer.append("  </Document>\n")
                 writer.append("</kml>\n")
@@ -440,7 +436,7 @@ class MainActivity : AppCompatActivity() {
             writer.close()
         } catch (e: Exception) {
             e.printStackTrace()
-            Toast.makeText(this, "Erreur écriture KML : ${e.message}", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Error writing KML: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -453,7 +449,7 @@ class MainActivity : AppCompatActivity() {
                 intents.add(Intent(Intent.ACTION_SEND).apply {
                     type = "text/csv"
                     putExtra(Intent.EXTRA_STREAM, csvUri)
-                    putExtra(Intent.EXTRA_SUBJECT, "Fichier CSV GPS Logger")
+                    putExtra(Intent.EXTRA_SUBJECT, "GPS Logger CSV File")
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 })
             }
@@ -465,17 +461,17 @@ class MainActivity : AppCompatActivity() {
                 intents.add(Intent(Intent.ACTION_SEND).apply {
                     type = "application/vnd.google-earth.kml+xml"
                     putExtra(Intent.EXTRA_STREAM, kmlUri)
-                    putExtra(Intent.EXTRA_SUBJECT, "Fichier KML GPS Logger")
+                    putExtra(Intent.EXTRA_SUBJECT, "GPS Logger KML File")
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 })
             }
         }
         if (intents.isNotEmpty()) {
-            val chooserIntent = Intent.createChooser(intents.removeAt(0), "Partager les fichiers")
+            val chooserIntent = Intent.createChooser(intents.removeAt(0), "Share files")
             chooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, intents.toTypedArray())
             startActivity(chooserIntent)
         } else {
-            Toast.makeText(this, "Aucun fichier à partager", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "No files to share", Toast.LENGTH_LONG).show()
         }
     }
 

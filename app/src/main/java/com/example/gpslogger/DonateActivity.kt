@@ -3,6 +3,7 @@ package com.example.gpslogger
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.Bundle
+import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -16,6 +17,7 @@ class DonateActivity : AppCompatActivity() {
         val paypalText: TextView = findViewById(R.id.paypal_text)
         val erc20Text: TextView = findViewById(R.id.erc20_text)
         val splText: TextView = findViewById(R.id.spl_text)
+        val backButton: ImageButton = findViewById(R.id.back_button) // Nouveau bouton
 
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
 
@@ -35,6 +37,10 @@ class DonateActivity : AppCompatActivity() {
             val address = "2kxcPaCyCQdKCzbs2JBNCvbJBjPYKjXKVqe6nAy9oSn5"
             clipboard.setText(address)
             Toast.makeText(this, "SPL address copied to clipboard", Toast.LENGTH_SHORT).show()
+        }
+
+        backButton.setOnClickListener {
+            finish() // Retour à l’écran précédent (WelcomeActivity)
         }
     }
 

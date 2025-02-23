@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.os.Environment
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageButton
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -24,6 +25,7 @@ class NoteActivity : AppCompatActivity() {
     private lateinit var recordAudioButton: Button
     private lateinit var saveNoteButton: Button
     private lateinit var noteText: EditText
+    private lateinit var backButton: ImageButton // Nouveau bouton
     private var mediaRecorder: MediaRecorder? = null
     private var audioFile: File? = null
     private var isRecording = false
@@ -38,8 +40,8 @@ class NoteActivity : AppCompatActivity() {
         recordAudioButton = findViewById(R.id.record_audio_button)
         saveNoteButton = findViewById(R.id.save_note_button)
         noteText = findViewById(R.id.note_text)
+        backButton = findViewById(R.id.back_button)
 
-        // Récupérer les coordonnées GPS passées depuis MainActivity
         latitude = intent.getDoubleExtra("latitude", 0.0)
         longitude = intent.getDoubleExtra("longitude", 0.0)
 
@@ -57,6 +59,10 @@ class NoteActivity : AppCompatActivity() {
 
         saveNoteButton.setOnClickListener {
             saveNote()
+        }
+
+        backButton.setOnClickListener {
+            finish() // Retour à MainActivity
         }
     }
 
@@ -84,7 +90,7 @@ class NoteActivity : AppCompatActivity() {
         if (requestCode == AUDIO_PERMISSION_REQUEST_CODE && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             startRecording()
         } else {
-            Toast.makeText(this, "Permission d’enregistrement refusée", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Recording permission denied", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -101,11 +107,11 @@ class NoteActivity : AppCompatActivity() {
                 prepare()
                 start()
                 isRecording = true
-                recordAudioButton.text = "Arrêter l’enregistrement"
-                Toast.makeText(this@NoteActivity, "Enregistrement commencé", Toast.LENGTH_SHORT).show()
+                recordAudioButton.text = "Stop Recording"
+                Toast.makeText(this@NoteActivity, "Recording started", Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
                 e.printStackTrace()
-                Toast.makeText(this@NoteActivity, "Erreur démarrage enregistrement : ${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(this@NoteActivity, "Error starting recording: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -116,12 +122,12 @@ class NoteActivity : AppCompatActivity() {
                 stop()
                 release()
                 isRecording = false
-                recordAudioButton.text = "Enregistrer une note vocale"
-                Toast.makeText(this@NoteActivity, "Note vocale enregistrée", Toast.LENGTH_SHORT).show()
+                recordAudioButton.text = "Record Audio Note"
+                Toast.makeText(this@NoteActivity, "Audio note recorded", Toast.LENGTH_SHORT).show()
                 shareNote(audioFile!!)
             } catch (e: Exception) {
                 e.printStackTrace()
-                Toast.makeText(this@NoteActivity, "Erreur arrêt enregistrement : ${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(this@NoteActivity, "Error stopping recording: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
         mediaRecorder = null
@@ -132,15 +138,15 @@ class NoteActivity : AppCompatActivity() {
         if (text.isNotEmpty()) {
             val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
             val file = File(getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "Note_$timestamp.txt")
-            FileWriter(file).use { writer ->
+            FileWriter(file).use { writer: FileWriter ->
                 writer.write("Timestamp: $timestamp\nLatitude: $latitude\nLongitude: $longitude\nNote: $text")
             }
-            Toast.makeText(this, "Note textuelle enregistrée", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Text note recorded", Toast.LENGTH_SHORT).show()
             shareNote(file)
         } else if (audioFile == null) {
-            Toast.makeText(this, "Aucune note à sauvegarder", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "No note to save", Toast.LENGTH_SHORT).show()
         }
-        finish() // Retour à MainActivity après sauvegarde
+        finish()
     }
 
     private fun shareNote(file: File) {
@@ -148,11 +154,11 @@ class NoteActivity : AppCompatActivity() {
         val shareIntent = Intent(Intent.ACTION_SEND).apply {
             type = if (file.extension == "mp3") "audio/mpeg" else "text/plain"
             putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_SUBJECT, "Note GPS Logger")
-            putExtra(Intent.EXTRA_TEXT, "Voici une note liée à mon parcours.")
+            putExtra(Intent.EXTRA_SUBJECT, "GPS Logger Note")
+            putExtra(Intent.EXTRA_TEXT, "Here is a note linked to my journey.")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        startActivity(Intent.createChooser(shareIntent, "Partager la note"))
+        startActivity(Intent.createChooser(shareIntent, "Share the note"))
     }
 
     override fun onDestroy() {
