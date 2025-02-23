@@ -31,7 +31,12 @@ class HistoryActivity : AppCompatActivity() {
         shareAllButton = findViewById(R.id.share_all_button)
 
         val documentsDir = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS)
-        val files = documentsDir?.listFiles { file -> file.extension == "csv" || file.extension == "kml" }?.toList() ?: emptyList()
+        val musicDir = getExternalFilesDir(Environment.DIRECTORY_MUSIC)
+        val picturesDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+        val files = mutableListOf<File>()
+        documentsDir?.listFiles { file -> file.extension in listOf("csv", "kml", "txt") }?.let { files.addAll(it) }
+        musicDir?.listFiles { file -> file.extension == "mp3" }?.let { files.addAll(it) }
+        picturesDir?.listFiles { file -> file.extension == "png" }?.let { files.addAll(it) }
 
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.adapter = HistoryAdapter(this, files)
@@ -65,7 +70,7 @@ class HistoryActivity : AppCompatActivity() {
             type = "application/zip"
             putExtra(Intent.EXTRA_STREAM, uri)
             putExtra(Intent.EXTRA_SUBJECT, "Historique GPS Logger")
-            putExtra(Intent.EXTRA_TEXT, "Voici tous mes fichiers CSV et KML zippés.")
+            putExtra(Intent.EXTRA_TEXT, "Voici tous mes fichiers CSV, KML, notes textuelles, vocales, et instantanés zippés.")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         startActivity(Intent.createChooser(shareIntent, "Share all in zip file?"))

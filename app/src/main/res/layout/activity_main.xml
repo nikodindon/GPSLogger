@@ -62,6 +62,19 @@
         android:padding="16dp"
         android:layout_gravity="center_horizontal" />
 
+    <!-- Bouton Détail -->
+    <Button
+        android:id="@+id/detail_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Détail"
+        android:textSize="16sp"
+        android:background="#FFFFFF"
+        android:textColor="#000000"
+        android:padding="8dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="8dp" />
+
     <!-- Liste des coordonnées en direct -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/points_recycler_view"
@@ -69,9 +82,10 @@
         android:layout_height="wrap_content"
         android:maxHeight="150dp"
         android:background="#80000000"
-        android:padding="4dp" />
+        android:padding="4dp"
+        android:visibility="gone" />
 
-    <!-- Conteneur pour les boutons Retour et Partager -->
+    <!-- Conteneur pour les boutons Retour, Partager, Snapshot et Note -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -96,6 +110,26 @@
             android:src="@android:drawable/ic_menu_share"
             android:background="?android:attr/selectableItemBackground"
             android:contentDescription="Partager le fichier CSV"
-            android:padding="12dp" />
+            android:padding="12dp"
+            android:layout_marginEnd="16dp" />
+
+        <ImageButton
+            android:id="@+id/snapshot_button"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@android:drawable/ic_menu_camera"
+            android:background="?android:attr/selectableItemBackground"
+            android:contentDescription="Capturer un instantané de la carte"
+            android:padding="12dp"
+            android:layout_marginEnd="16dp" />
+
+        <ImageButton
+            android:id="@+id/note_button"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@android:drawable/ic_menu_edit"
+        android:background="?android:attr/selectableItemBackground"
+        android:contentDescription="Ajouter une note"
+        android:padding="12dp" />
     </LinearLayout>
 </LinearLayout>

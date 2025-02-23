@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<paths>
-    <external-files-path name="documents" path="Documents/" />
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <external-files-path name="documents" path="Documents/" /> <!-- Pour CSV, KML, TXT -->
+    <external-files-path name="music" path="Music/" /> <!-- Pour MP3 -->
+    <external-files-path name="pictures" path="Pictures/" /> <!-- Pour PNG -->
 </paths>

@@ -3,12 +3,15 @@ package com.example.gpslogger
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.location.Location
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
+import android.view.View
 import android.widget.Button
 import android.widget.ImageButton
 import android.widget.TextView
@@ -27,6 +30,7 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polyline
 import java.io.File
+import java.io.FileOutputStream
 import java.io.FileWriter
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -42,7 +46,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var startStopButton: Button
     private lateinit var shareButton: ImageButton
     private lateinit var backButton: ImageButton
+    private lateinit var snapshotButton: ImageButton
+    private lateinit var noteButton: ImageButton
     private lateinit var recenterButton: Button
+    private lateinit var detailButton: Button
     private lateinit var map: MapView
     private lateinit var statsText: TextView
     private lateinit var pointsRecyclerView: RecyclerView
@@ -53,10 +60,11 @@ class MainActivity : AppCompatActivity() {
     private var totalDistance: Float = 0f
     private var useCsv = true
     private var useKml = false
-    private var currentSpeed: Float = 0f // Vitesse courante en m/s
-    private var maxSpeed: Float = 0f // Vitesse max en m/s
-    private var totalSpeed: Float = 0f // Pour calculer la moyenne
-    private var speedCount: Int = 0 // Nombre de mesures pour la moyenne
+    private var currentSpeed: Float = 0f
+    private var maxSpeed: Float = 0f
+    private var totalSpeed: Float = 0f
+    private var speedCount: Int = 0
+    private var detailsVisible = false
 
     private val locationRunnable = object : Runnable {
         override fun run() {
@@ -88,7 +96,10 @@ class MainActivity : AppCompatActivity() {
         startStopButton = findViewById(R.id.start_stop_button)
         shareButton = findViewById(R.id.share_button)
         backButton = findViewById(R.id.back_button)
+        snapshotButton = findViewById(R.id.snapshot_button)
+        noteButton = findViewById(R.id.note_button)
         recenterButton = findViewById(R.id.recenter_button)
+        detailButton = findViewById(R.id.detail_button)
         map = findViewById(R.id.map)
         statsText = findViewById(R.id.stats_text)
         pointsRecyclerView = findViewById(R.id.points_recycler_view)
@@ -123,6 +134,21 @@ class MainActivity : AppCompatActivity() {
             finish()
         }
 
+        snapshotButton.setOnClickListener { shareMapSnapshot() }
+
+        noteButton.setOnClickListener {
+            if (pointDataList.isNotEmpty()) {
+                val lastPoint = pointDataList.last()
+                val intent = Intent(this, NoteActivity::class.java).apply {
+                    putExtra("latitude", lastPoint.latitude)
+                    putExtra("longitude", lastPoint.longitude)
+                }
+                startActivity(intent)
+            } else {
+                Toast.makeText(this, "Aucune position enregistrée pour ajouter une note", Toast.LENGTH_SHORT).show()
+            }
+        }
+
         recenterButton.setOnClickListener {
             if (points.isNotEmpty()) {
                 val lastPoint = points.last()
@@ -131,6 +157,17 @@ class MainActivity : AppCompatActivity() {
                 map.invalidate()
             } else {
                 Toast.makeText(this, "Aucune position enregistrée", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        detailButton.setOnClickListener {
+            detailsVisible = !detailsVisible
+            if (detailsVisible) {
+                pointsRecyclerView.visibility = View.VISIBLE
+                detailButton.text = "Cacher Détails"
+            } else {
+                pointsRecyclerView.visibility = View.GONE
+                detailButton.text = "Détail"
             }
         }
     }
@@ -211,8 +248,8 @@ class MainActivity : AppCompatActivity() {
                 location?.let {
                     val latitude = it.latitude
                     val longitude = it.longitude
-                    val altitude = it.altitude // Altitude en mètres
-                    val speed = it.speed // Vitesse en m/s
+                    val altitude = it.altitude
+                    val speed = it.speed
                     val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
                     if (useCsv) saveToCsv(timestamp, latitude.toString(), longitude.toString())
                     if (useKml) saveToKml(latitude, longitude, timestamp)
@@ -223,13 +260,15 @@ class MainActivity : AppCompatActivity() {
                         totalDistance += calculateDistance(lastPoint, point)
                     }
                     points.add(point)
-                    pointDataList.add(PointData(timestamp, latitude, longitude, speed * 3.6f, altitude)) // Vitesse convertie en km/h
-                    pointsAdapter.notifyItemInserted(pointDataList.size - 1)
-                    pointsRecyclerView.scrollToPosition(pointDataList.size - 1)
+                    pointDataList.add(PointData(timestamp, latitude, longitude, speed * 3.6f, altitude))
+                    if (detailsVisible) {
+                        pointsAdapter.notifyItemInserted(pointDataList.size - 1)
+                        pointsRecyclerView.scrollToPosition(pointDataList.size - 1)
+                    }
 
-                    currentSpeed = speed // Vitesse courante en m/s
-                    if (speed > maxSpeed) maxSpeed = speed // Vitesse max en m/s
-                    totalSpeed += speed // Pour la moyenne
+                    currentSpeed = speed
+                    if (speed > maxSpeed) maxSpeed = speed
+                    totalSpeed += speed
                     speedCount++
 
                     val marker = Marker(map)
@@ -269,13 +308,50 @@ class MainActivity : AppCompatActivity() {
         val minutes = (elapsedTime / 1000) / 60
         val seconds = (elapsedTime / 1000) % 60
         val distanceKm = totalDistance / 1000
-        val currentSpeedKmh = currentSpeed * 3.6f // Convertir m/s en km/h
-        val maxSpeedKmh = maxSpeed * 3.6f // Convertir m/s en km/h
-        val avgSpeedKmh = if (speedCount > 0) (totalSpeed / speedCount) * 3.6f else 0f // Moyenne en km/h
+        val currentSpeedKmh = currentSpeed * 3.6f
+        val maxSpeedKmh = maxSpeed * 3.6f
+        val avgSpeedKmh = if (speedCount > 0) (totalSpeed / speedCount) * 3.6f else 0f
         val altitude = if (pointDataList.isNotEmpty()) pointDataList.last().altitude else 0.0
 
         statsText.text = "Distance : %.2f km\nDurée : %02d:%02d\nVitesse : %.1f km/h\nVmax : %.1f km/h\nVmoy : %.1f km/h\nAltitude : %.1f m"
             .format(distanceKm, minutes, seconds, currentSpeedKmh, maxSpeedKmh, avgSpeedKmh, altitude)
+    }
+
+    private fun shareMapSnapshot() {
+        try {
+            // Vérifie que la carte est prête
+            if (map.width <= 0 || map.height <= 0) {
+                Toast.makeText(this, "La carte n’est pas encore prête", Toast.LENGTH_SHORT).show()
+                return
+            }
+
+            // Capture manuelle de la carte dans un Bitmap
+            val bitmap = Bitmap.createBitmap(map.width, map.height, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
+            map.draw(canvas)
+
+            // Sauvegarde dans DIRECTORY_PICTURES pour l’historique
+            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+            val file = File(getExternalFilesDir(Environment.DIRECTORY_PICTURES), "GPSLogger_Snapshot_$timestamp.png")
+            FileOutputStream(file).use { out ->
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                out.flush()
+            }
+
+            // Partage via Intent
+            val uri = FileProvider.getUriForFile(this, "${packageName}.fileprovider", file)
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "image/png"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                putExtra(Intent.EXTRA_SUBJECT, "Instantané GPS Logger")
+                putExtra(Intent.EXTRA_TEXT, "Voici un instantané de mon parcours actuel.")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            startActivity(Intent.createChooser(shareIntent, "Partager l’instantané de la carte"))
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(this, "Erreur lors du partage : ${e.message}", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun getFileName(extension: String): String {

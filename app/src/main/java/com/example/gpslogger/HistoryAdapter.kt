@@ -7,7 +7,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
-import android.widget.Toast // Ajoute cette importation
+import android.widget.Toast
 import androidx.core.content.FileProvider
 import androidx.recyclerview.widget.RecyclerView
 import java.io.File
@@ -38,7 +38,14 @@ class HistoryAdapter(
                 file
             )
             val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, if (file.extension == "csv") "text/csv" else "application/vnd.google-earth.kml+xml")
+                when (file.extension) {
+                    "csv" -> setDataAndType(uri, "text/csv")
+                    "kml" -> setDataAndType(uri, "application/vnd.google-earth.kml+xml")
+                    "txt" -> setDataAndType(uri, "text/plain")
+                    "mp3" -> setDataAndType(uri, "audio/mpeg")
+                    "png" -> setDataAndType(uri, "image/png") // Ajout pour les snapshots
+                    else -> setDataAndType(uri, "*/*")
+                }
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             try {
