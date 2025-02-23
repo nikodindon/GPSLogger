@@ -17,12 +17,43 @@
         android:layout_gravity="center_horizontal"
         android:paddingTop="16dp" />
 
-    <!-- Carte osmdroid -->
-    <org.osmdroid.views.MapView
-        android:id="@+id/map"
+    <!-- Carte osmdroid avec bouton Recentrer -->
+    <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1" />
+        android:layout_weight="1">
+
+        <org.osmdroid.views.MapView
+            android:id="@+id/map"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <!-- Bouton Recentrer dans le coin supérieur gauche de la carte -->
+        <Button
+            android:id="@+id/recenter_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Recenter"
+            android:textSize="14sp"
+            android:background="#FFFFFF"
+            android:textColor="#000000"
+            android:padding="8dp"
+            android:layout_alignParentStart="true"
+            android:layout_alignParentTop="true"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="16dp" />
+    </RelativeLayout>
+
+    <!-- Statistiques -->
+    <TextView
+        android:id="@+id/stats_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Distance : 0 m\nDurée : 00:00"
+        android:textSize="16sp"
+        android:textColor="#FFFFFF"
+        android:layout_gravity="center_horizontal"
+        android:padding="8dp" />
 
     <!-- Bouton Start/Stop -->
     <Button

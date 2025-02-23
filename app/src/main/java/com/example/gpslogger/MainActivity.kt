@@ -11,6 +11,7 @@ import android.os.Handler
 import android.os.Looper
 import android.widget.Button
 import android.widget.ImageButton
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -32,41 +33,54 @@ import java.util.Locale
 class MainActivity : AppCompatActivity() {
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
-    private val handler = Handler(Looper.getMainLooper())
+    private val locationHandler = Handler(Looper.getMainLooper())
+    private val timerHandler = Handler(Looper.getMainLooper())
     private val LOCATION_PERMISSION_REQUEST_CODE = 1
-    private val csvFileName = "gps_log.csv"
     private var isRecording = false
     private lateinit var startStopButton: Button
     private lateinit var shareButton: ImageButton
+    private lateinit var recenterButton: Button
     private lateinit var map: MapView
-    private val points = mutableListOf<GeoPoint>() // Liste pour les points GPS
+    private lateinit var statsText: TextView
+    private val points = mutableListOf<GeoPoint>()
+    private var startTime: Long = 0
+    private var totalDistance: Float = 0f
 
     private val locationRunnable = object : Runnable {
         override fun run() {
             if (isRecording) {
                 getLocation()
-                handler.postDelayed(this, 10000) // 10 secondes
+                locationHandler.postDelayed(this, 10000)
+            }
+        }
+    }
+
+    private val timerRunnable = object : Runnable {
+        override fun run() {
+            if (isRecording) {
+                updateStats()
+                timerHandler.postDelayed(this, 1000)
             }
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Initialiser la configuration osmdroid
         Configuration.getInstance().load(this, getPreferences(MODE_PRIVATE))
         setContentView(R.layout.activity_main)
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         startStopButton = findViewById(R.id.start_stop_button)
         shareButton = findViewById(R.id.share_button)
+        recenterButton = findViewById(R.id.recenter_button)
         map = findViewById(R.id.map)
+        statsText = findViewById(R.id.stats_text)
 
-        // Configurer la carte osmdroid
-        map.setTileSource(TileSourceFactory.MAPNIK) // Source de tuiles OSM
+        map.setTileSource(TileSourceFactory.MAPNIK)
         map.setBuiltInZoomControls(true)
         map.setMultiTouchControls(true)
-        map.controller.setZoom(15.0) // Zoom initial
-        map.controller.setCenter(GeoPoint(0.0, 0.0)) // Position par défaut
+        map.controller.setZoom(15.0)
+        map.controller.setCenter(GeoPoint(0.0, 0.0))
 
         startStopButton.setOnClickListener {
             if (isRecording) {
@@ -81,6 +95,17 @@ class MainActivity : AppCompatActivity() {
         }
 
         shareButton.setOnClickListener { shareCsvFile() }
+
+        recenterButton.setOnClickListener {
+            if (points.isNotEmpty()) {
+                val lastPoint = points.last()
+                map.controller.setCenter(lastPoint)
+                map.controller.setZoom(15.0)
+                map.invalidate()
+            } else {
+                Toast.makeText(this, "Aucune position enregistrée", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private fun checkPermissions(): Boolean {
@@ -117,15 +142,31 @@ class MainActivity : AppCompatActivity() {
     private fun startRecording() {
         isRecording = true
         startStopButton.text = "Stop"
-        getLocation() // Première exécution immédiate
-        handler.postDelayed(locationRunnable, 10000) // Démarre le cycle
+        startTime = System.currentTimeMillis()
+        points.clear()
+        totalDistance = 0f
+        getLocation()
+        locationHandler.postDelayed(locationRunnable, 10000)
+        timerHandler.post(timerRunnable)
+
+        // Écrire "Démarrage de la marche" dans le CSV
+        val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+        saveToCsv("Démarrage de la marche $timestamp", "", "")
+
         Toast.makeText(this, "Enregistrement démarré", Toast.LENGTH_SHORT).show()
     }
 
     private fun stopRecording() {
         isRecording = false
         startStopButton.text = "Start"
-        handler.removeCallbacks(locationRunnable)
+        locationHandler.removeCallbacks(locationRunnable)
+        timerHandler.removeCallbacks(timerRunnable)
+
+        // Écrire "Arrêt de la marche" dans le CSV
+        val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+        saveToCsv("Arrêt de la marche $timestamp", "", "")
+        saveToCsv("", "", "") // Ligne vide pour séparation claire
+
         Toast.makeText(this, "Enregistrement arrêté", Toast.LENGTH_SHORT).show()
     }
 
@@ -139,10 +180,13 @@ class MainActivity : AppCompatActivity() {
                     val latitude = it.latitude
                     val longitude = it.longitude
                     val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
-                    saveToCsv(latitude, longitude, timestamp)
+                    saveToCsv(timestamp, latitude.toString(), longitude.toString())
 
-                    // Ajouter le point à la carte osmdroid
                     val point = GeoPoint(latitude, longitude)
+                    if (points.isNotEmpty()) {
+                        val lastPoint = points.last()
+                        totalDistance += calculateDistance(lastPoint, point)
+                    }
                     points.add(point)
                     val marker = Marker(map)
                     marker.position = point
@@ -152,11 +196,11 @@ class MainActivity : AppCompatActivity() {
                     if (points.size > 1) {
                         val polyline = Polyline()
                         polyline.setPoints(points)
-                        polyline.color = 0xFF0000FF.toInt() // Ligne bleue
+                        polyline.color = 0xFF0000FF.toInt()
                         map.overlays.add(polyline)
                     }
                     map.controller.setCenter(point)
-                    map.invalidate() // Rafraîchir la carte
+                    map.invalidate()
 
                     Toast.makeText(this, "Position : $latitude, $longitude", Toast.LENGTH_SHORT).show()
                 } ?: Toast.makeText(this, "Position indisponible", Toast.LENGTH_SHORT).show()
@@ -166,9 +210,33 @@ class MainActivity : AppCompatActivity() {
             }
     }
 
-    private fun saveToCsv(latitude: Double, longitude: Double, timestamp: String) {
+    private fun calculateDistance(point1: GeoPoint, point2: GeoPoint): Float {
+        val results = FloatArray(1)
+        Location.distanceBetween(
+            point1.latitude, point1.longitude,
+            point2.latitude, point2.longitude,
+            results
+        )
+        return results[0]
+    }
+
+    private fun updateStats() {
+        val elapsedTime = System.currentTimeMillis() - startTime
+        val minutes = (elapsedTime / 1000) / 60
+        val seconds = (elapsedTime / 1000) % 60
+        val distanceKm = totalDistance / 1000
+        statsText.text = "Distance : %.2f km\nDurée : %02d:%02d".format(distanceKm, minutes, seconds)
+    }
+
+    private fun getCsvFileName(): String {
+        val dateFormat = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
+        val currentDate = dateFormat.format(Date())
+        return "marche du $currentDate.csv"
+    }
+
+    private fun saveToCsv(timestamp: String, latitude: String, longitude: String) {
         try {
-            val file = File(getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), csvFileName)
+            val file = File(getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), getCsvFileName())
             val isNewFile = !file.exists()
             val writer = FileWriter(file, true)
             if (isNewFile) {
@@ -184,7 +252,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun shareCsvFile() {
-        val file = File(getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), csvFileName)
+        val file = File(getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), getCsvFileName())
         if (file.exists()) {
             val uri: Uri = FileProvider.getUriForFile(this, "${packageName}.fileprovider", file)
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
@@ -202,16 +270,17 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        handler.removeCallbacks(locationRunnable)
+        locationHandler.removeCallbacks(locationRunnable)
+        timerHandler.removeCallbacks(timerRunnable)
     }
 
     override fun onResume() {
         super.onResume()
-        map.onResume() // Nécessaire pour osmdroid
+        map.onResume()
     }
 
     override fun onPause() {
         super.onPause()
-        map.onPause() // Nécessaire pour osmdroid
+        map.onPause()
     }
 }
