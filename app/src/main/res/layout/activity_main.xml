@@ -5,7 +5,6 @@
     android:orientation="vertical"
     android:background="#000000">
 
-    <!-- Titre "GPSLogger" -->
     <TextView
         android:id="@+id/title_text"
         android:layout_width="wrap_content"
@@ -17,7 +16,6 @@
         android:layout_gravity="center_horizontal"
         android:paddingTop="16dp" />
 
-    <!-- Carte osmdroid avec bouton Recentrer -->
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -28,7 +26,6 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
 
-        <!-- Bouton Recentrer dans le coin supérieur gauche de la carte -->
         <Button
             android:id="@+id/recenter_button"
             android:layout_width="wrap_content"
@@ -44,18 +41,16 @@
             android:layout_marginTop="16dp" />
     </RelativeLayout>
 
-    <!-- Statistiques -->
     <TextView
         android:id="@+id/stats_text"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Distance : 0 m\nDurée : 00:00"
+        android:text="Distance : 0 m\nDurée : 00:00\nVitesse : 0 km/h\nVmax : 0 km/h\nVmoy : 0 km/h\nAltitude : 0 m"
         android:textSize="16sp"
         android:textColor="#FFFFFF"
         android:layout_gravity="center_horizontal"
         android:padding="8dp" />
 
-    <!-- Bouton Start/Stop -->
     <Button
         android:id="@+id/start_stop_button"
         android:layout_width="wrap_content"
@@ -67,14 +62,40 @@
         android:padding="16dp"
         android:layout_gravity="center_horizontal" />
 
-    <!-- Bouton de partage -->
-    <ImageButton
-        android:id="@+id/share_button"
-        android:layout_width="wrap_content"
+    <!-- Liste des coordonnées en direct -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/points_recycler_view"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:src="@android:drawable/ic_menu_share"
-        android:background="?android:attr/selectableItemBackground"
-        android:layout_gravity="center_horizontal"
-        android:padding="16dp"
-        android:contentDescription="Partager le fichier CSV" />
+        android:maxHeight="150dp"
+        android:background="#80000000"
+        android:padding="4dp" />
+
+    <!-- Conteneur pour les boutons Retour et Partager -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:padding="8dp">
+
+        <ImageButton
+            android:id="@+id/back_button"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@android:drawable/ic_menu_revert"
+            android:background="?android:attr/selectableItemBackground"
+            android:contentDescription="Retour à l’écran d’accueil"
+            android:padding="12dp"
+            android:layout_marginEnd="16dp" />
+
+        <ImageButton
+            android:id="@+id/share_button"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@android:drawable/ic_menu_share"
+            android:background="?android:attr/selectableItemBackground"
+            android:contentDescription="Partager le fichier CSV"
+            android:padding="12dp" />
+    </LinearLayout>
 </LinearLayout>

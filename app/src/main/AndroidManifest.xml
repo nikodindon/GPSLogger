@@ -13,9 +13,11 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.AppCompat.Light.NoActionBar">
         <activity
-            android:name=".HistoryActivity"
+            android:name=".DonateActivity"
             android:exported="false" />
-        <!-- WelcomeActivity comme activité de démarrage -->
+        <activity
+            android:name=".HistoryActivity"
+            android:exported="false" /> <!-- WelcomeActivity comme activité de démarrage -->
         <activity
             android:name=".WelcomeActivity"
             android:exported="true">
@@ -27,6 +29,10 @@
         </activity> <!-- MainActivity sans intent-filter -->
         <activity
             android:name=".MainActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".DonateActivity"
             android:exported="false" />
 
         <provider

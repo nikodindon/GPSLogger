@@ -6,8 +6,8 @@ import android.net.Uri
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ImageButton
 import android.widget.TextView
+import android.widget.Toast // Ajoute cette importation
 import androidx.core.content.FileProvider
 import androidx.recyclerview.widget.RecyclerView
 import java.io.File
@@ -19,7 +19,6 @@ class HistoryAdapter(
 
     class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val fileNameText: TextView = itemView.findViewById(R.id.file_name_text)
-        val shareFileButton: ImageButton = itemView.findViewById(R.id.share_file_button)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -32,20 +31,21 @@ class HistoryAdapter(
         val file = files[position]
         holder.fileNameText.text = file.name
 
-        holder.shareFileButton.setOnClickListener {
+        holder.fileNameText.setOnClickListener {
             val uri: Uri = FileProvider.getUriForFile(
                 context,
                 "${context.packageName}.fileprovider",
                 file
             )
-            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                type = "text/csv"
-                putExtra(Intent.EXTRA_STREAM, uri)
-                putExtra(Intent.EXTRA_SUBJECT, "Fichier GPS Logger : ${file.name}")
-                putExtra(Intent.EXTRA_TEXT, "Voici le fichier CSV ${file.name}.")
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, if (file.extension == "csv") "text/csv" else "application/vnd.google-earth.kml+xml")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            context.startActivity(Intent.createChooser(shareIntent, "Partager ${file.name}"))
+            try {
+                context.startActivity(Intent.createChooser(intent, "Ouvrir ${file.name} avec"))
+            } catch (e: Exception) {
+                Toast.makeText(context, "Aucune application trouvée pour ouvrir ce fichier", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 

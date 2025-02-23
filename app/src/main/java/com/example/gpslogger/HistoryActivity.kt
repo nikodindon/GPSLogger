@@ -14,7 +14,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Locale // Ajoute cette importation
+import java.util.Locale
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -31,14 +31,14 @@ class HistoryActivity : AppCompatActivity() {
         shareAllButton = findViewById(R.id.share_all_button)
 
         val documentsDir = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS)
-        val csvFiles = documentsDir?.listFiles { file -> file.extension == "csv" }?.toList() ?: emptyList()
+        val files = documentsDir?.listFiles { file -> file.extension == "csv" || file.extension == "kml" }?.toList() ?: emptyList()
 
         recyclerView.layoutManager = LinearLayoutManager(this)
-        recyclerView.adapter = HistoryAdapter(this, csvFiles)
+        recyclerView.adapter = HistoryAdapter(this, files)
 
         shareAllButton.setOnClickListener {
-            if (csvFiles.isNotEmpty()) {
-                shareAllFilesAsZip(csvFiles)
+            if (files.isNotEmpty()) {
+                shareAllFilesAsZip(files)
             } else {
                 Toast.makeText(this, "Aucun fichier à zipper", Toast.LENGTH_SHORT).show()
             }
@@ -65,7 +65,7 @@ class HistoryActivity : AppCompatActivity() {
             type = "application/zip"
             putExtra(Intent.EXTRA_STREAM, uri)
             putExtra(Intent.EXTRA_SUBJECT, "Historique GPS Logger")
-            putExtra(Intent.EXTRA_TEXT, "Voici tous mes fichiers CSV zippés.")
+            putExtra(Intent.EXTRA_TEXT, "Voici tous mes fichiers CSV et KML zippés.")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         startActivity(Intent.createChooser(shareIntent, "Share all in zip file?"))

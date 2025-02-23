@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#000000"
+    android:gravity="center"
+    android:padding="16dp">
+
+    <!-- Titre -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="BUY me a coffee!"
+        android:textSize="24sp"
+        android:textColor="#FFFFFF"
+        android:paddingBottom="32dp" />
+
+    <!-- Paypal -->
+    <TextView
+        android:id="@+id/paypal_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Paypal: larrydavid6923@gmail.com"
+        android:textSize="16sp"
+        android:textColor="@android:color/holo_blue_dark"
+        android:padding="8dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:background="?android:attr/selectableItemBackground" />
+
+    <!-- ERC20 -->
+    <TextView
+        android:id="@+id/erc20_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="ERC20: 0xd79d8c135463DF9e4DDDD98A87EEdcaad337cFa7"
+        android:textSize="16sp"
+        android:textColor="@android:color/holo_blue_dark"
+        android:padding="8dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:background="?android:attr/selectableItemBackground" />
+
+    <!-- SPL -->
+    <TextView
+        android:id="@+id/spl_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="SPL: 2kxcPaCyCQdKCzbs2JBNCvbJBjPYKjXKVqe6nAy9oSn5"
+        android:textSize="16sp"
+        android:textColor="@android:color/holo_blue_dark"
+        android:padding="8dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:background="?android:attr/selectableItemBackground" />
+</LinearLayout>

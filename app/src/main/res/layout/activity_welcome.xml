@@ -24,7 +24,7 @@
         android:text="Welcome to GPSLogger!"
         android:textSize="20sp"
         android:textColor="#FFFFFF"
-        android:paddingBottom="48dp" />
+        android:paddingBottom="24dp" />
 
     <!-- Bouton Start Tracking -->
     <Button
@@ -47,5 +47,44 @@
         android:textSize="18sp"
         android:background="#FFFFFF"
         android:textColor="#000000"
-        android:padding="16dp" />
+        android:padding="16dp"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Bouton Donate -->
+    <Button
+        android:id="@+id/donate_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Donate"
+        android:textSize="18sp"
+        android:background="#FFFFFF"
+        android:textColor="#000000"
+        android:padding="16dp"
+        android:layout_marginBottom="24dp" />
+
+    <!-- Choix des formats de sortie -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Output Format:"
+        android:textSize="16sp"
+        android:textColor="#FFFFFF"
+        android:paddingBottom="8dp" />
+
+    <CheckBox
+        android:id="@+id/csv_checkbox"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="CSV"
+        android:textSize="16sp"
+        android:textColor="#FFFFFF"
+        android:checked="true" />
+
+    <CheckBox
+        android:id="@+id/kml_checkbox"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="KML"
+        android:textSize="16sp"
+        android:textColor="#FFFFFF" />
 </LinearLayout>

@@ -16,6 +16,8 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.FileProvider
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import org.osmdroid.config.Configuration
@@ -39,12 +41,22 @@ class MainActivity : AppCompatActivity() {
     private var isRecording = false
     private lateinit var startStopButton: Button
     private lateinit var shareButton: ImageButton
+    private lateinit var backButton: ImageButton
     private lateinit var recenterButton: Button
     private lateinit var map: MapView
     private lateinit var statsText: TextView
+    private lateinit var pointsRecyclerView: RecyclerView
     private val points = mutableListOf<GeoPoint>()
+    private val pointDataList = mutableListOf<PointData>()
+    private lateinit var pointsAdapter: PointsAdapter
     private var startTime: Long = 0
     private var totalDistance: Float = 0f
+    private var useCsv = true
+    private var useKml = false
+    private var currentSpeed: Float = 0f // Vitesse courante en m/s
+    private var maxSpeed: Float = 0f // Vitesse max en m/s
+    private var totalSpeed: Float = 0f // Pour calculer la moyenne
+    private var speedCount: Int = 0 // Nombre de mesures pour la moyenne
 
     private val locationRunnable = object : Runnable {
         override fun run() {
@@ -69,18 +81,27 @@ class MainActivity : AppCompatActivity() {
         Configuration.getInstance().load(this, getPreferences(MODE_PRIVATE))
         setContentView(R.layout.activity_main)
 
+        useCsv = intent.getBooleanExtra("use_csv", true)
+        useKml = intent.getBooleanExtra("use_kml", false)
+
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         startStopButton = findViewById(R.id.start_stop_button)
         shareButton = findViewById(R.id.share_button)
+        backButton = findViewById(R.id.back_button)
         recenterButton = findViewById(R.id.recenter_button)
         map = findViewById(R.id.map)
         statsText = findViewById(R.id.stats_text)
+        pointsRecyclerView = findViewById(R.id.points_recycler_view)
 
         map.setTileSource(TileSourceFactory.MAPNIK)
         map.setBuiltInZoomControls(true)
         map.setMultiTouchControls(true)
         map.controller.setZoom(15.0)
         map.controller.setCenter(GeoPoint(0.0, 0.0))
+
+        pointsAdapter = PointsAdapter(pointDataList)
+        pointsRecyclerView.layoutManager = LinearLayoutManager(this)
+        pointsRecyclerView.adapter = pointsAdapter
 
         startStopButton.setOnClickListener {
             if (isRecording) {
@@ -94,7 +115,13 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        shareButton.setOnClickListener { shareCsvFile() }
+        shareButton.setOnClickListener { shareFiles() }
+
+        backButton.setOnClickListener {
+            val intent = Intent(this, WelcomeActivity::class.java)
+            startActivity(intent)
+            finish()
+        }
 
         recenterButton.setOnClickListener {
             if (points.isNotEmpty()) {
@@ -144,15 +171,19 @@ class MainActivity : AppCompatActivity() {
         startStopButton.text = "Stop"
         startTime = System.currentTimeMillis()
         points.clear()
+        pointDataList.clear()
         totalDistance = 0f
+        currentSpeed = 0f
+        maxSpeed = 0f
+        totalSpeed = 0f
+        speedCount = 0
         getLocation()
         locationHandler.postDelayed(locationRunnable, 10000)
         timerHandler.post(timerRunnable)
 
-        // Écrire "Démarrage de la marche" dans le CSV
         val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
-        saveToCsv("Démarrage de la marche $timestamp", "", "")
-
+        if (useCsv) saveToCsv("Démarrage de la marche $timestamp", "", "")
+        if (useKml) startKml(timestamp)
         Toast.makeText(this, "Enregistrement démarré", Toast.LENGTH_SHORT).show()
     }
 
@@ -162,11 +193,12 @@ class MainActivity : AppCompatActivity() {
         locationHandler.removeCallbacks(locationRunnable)
         timerHandler.removeCallbacks(timerRunnable)
 
-        // Écrire "Arrêt de la marche" dans le CSV
         val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
-        saveToCsv("Arrêt de la marche $timestamp", "", "")
-        saveToCsv("", "", "") // Ligne vide pour séparation claire
-
+        if (useCsv) {
+            saveToCsv("Arrêt de la marche $timestamp", "", "")
+            saveToCsv("", "", "")
+        }
+        if (useKml) stopKml(timestamp)
         Toast.makeText(this, "Enregistrement arrêté", Toast.LENGTH_SHORT).show()
     }
 
@@ -179,8 +211,11 @@ class MainActivity : AppCompatActivity() {
                 location?.let {
                     val latitude = it.latitude
                     val longitude = it.longitude
+                    val altitude = it.altitude // Altitude en mètres
+                    val speed = it.speed // Vitesse en m/s
                     val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
-                    saveToCsv(timestamp, latitude.toString(), longitude.toString())
+                    if (useCsv) saveToCsv(timestamp, latitude.toString(), longitude.toString())
+                    if (useKml) saveToKml(latitude, longitude, timestamp)
 
                     val point = GeoPoint(latitude, longitude)
                     if (points.isNotEmpty()) {
@@ -188,6 +223,15 @@ class MainActivity : AppCompatActivity() {
                         totalDistance += calculateDistance(lastPoint, point)
                     }
                     points.add(point)
+                    pointDataList.add(PointData(timestamp, latitude, longitude, speed * 3.6f, altitude)) // Vitesse convertie en km/h
+                    pointsAdapter.notifyItemInserted(pointDataList.size - 1)
+                    pointsRecyclerView.scrollToPosition(pointDataList.size - 1)
+
+                    currentSpeed = speed // Vitesse courante en m/s
+                    if (speed > maxSpeed) maxSpeed = speed // Vitesse max en m/s
+                    totalSpeed += speed // Pour la moyenne
+                    speedCount++
+
                     val marker = Marker(map)
                     marker.position = point
                     marker.title = timestamp
@@ -225,18 +269,24 @@ class MainActivity : AppCompatActivity() {
         val minutes = (elapsedTime / 1000) / 60
         val seconds = (elapsedTime / 1000) % 60
         val distanceKm = totalDistance / 1000
-        statsText.text = "Distance : %.2f km\nDurée : %02d:%02d".format(distanceKm, minutes, seconds)
+        val currentSpeedKmh = currentSpeed * 3.6f // Convertir m/s en km/h
+        val maxSpeedKmh = maxSpeed * 3.6f // Convertir m/s en km/h
+        val avgSpeedKmh = if (speedCount > 0) (totalSpeed / speedCount) * 3.6f else 0f // Moyenne en km/h
+        val altitude = if (pointDataList.isNotEmpty()) pointDataList.last().altitude else 0.0
+
+        statsText.text = "Distance : %.2f km\nDurée : %02d:%02d\nVitesse : %.1f km/h\nVmax : %.1f km/h\nVmoy : %.1f km/h\nAltitude : %.1f m"
+            .format(distanceKm, minutes, seconds, currentSpeedKmh, maxSpeedKmh, avgSpeedKmh, altitude)
     }
 
-    private fun getCsvFileName(): String {
+    private fun getFileName(extension: String): String {
         val dateFormat = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
         val currentDate = dateFormat.format(Date())
-        return "marche du $currentDate.csv"
+        return "marche du $currentDate.$extension"
     }
 
     private fun saveToCsv(timestamp: String, latitude: String, longitude: String) {
         try {
-            val file = File(getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), getCsvFileName())
+            val file = File(getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), getFileName("csv"))
             val isNewFile = !file.exists()
             val writer = FileWriter(file, true)
             if (isNewFile) {
@@ -247,24 +297,109 @@ class MainActivity : AppCompatActivity() {
             writer.close()
         } catch (e: Exception) {
             e.printStackTrace()
-            Toast.makeText(this, "Erreur écriture : ${e.message}", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Erreur écriture CSV : ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 
-    private fun shareCsvFile() {
-        val file = File(getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), getCsvFileName())
-        if (file.exists()) {
-            val uri: Uri = FileProvider.getUriForFile(this, "${packageName}.fileprovider", file)
-            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                type = "text/csv"
-                putExtra(Intent.EXTRA_STREAM, uri)
-                putExtra(Intent.EXTRA_SUBJECT, "Fichier GPS Logger")
-                putExtra(Intent.EXTRA_TEXT, "Voici le fichier CSV avec mes positions GPS.")
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    private fun startKml(timestamp: String) {
+        try {
+            val file = File(getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), getFileName("kml"))
+            val isNewFile = !file.exists()
+            val writer = FileWriter(file, true)
+            if (isNewFile) {
+                writer.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
+                writer.append("<kml xmlns=\"http://www.opengis.net/kml/2.2\">\n")
+                writer.append("  <Document>\n")
+                writer.append("    <name>GPS Logger Track</name>\n")
+                writer.append("    <Style id=\"trackStyle\">\n")
+                writer.append("      <LineStyle>\n")
+                writer.append("        <color>ff0000ff</color>\n")
+                writer.append("        <width>4</width>\n")
+                writer.append("      </LineStyle>\n")
+                writer.append("    </Style>\n")
+                writer.append("    <Placemark>\n")
+                writer.append("      <name>Track Start</name>\n")
+                writer.append("      <description>Démarrage de la marche $timestamp</description>\n")
+                writer.append("      <styleUrl>#trackStyle</styleUrl>\n")
+                writer.append("      <LineString>\n")
+                writer.append("        <coordinates>\n")
+            } else {
+                writer.append("\n")
+                writer.append("<!-- Démarrage de la marche $timestamp -->\n")
             }
-            startActivity(Intent.createChooser(shareIntent, "Partager le fichier CSV"))
+            writer.flush()
+            writer.close()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(this, "Erreur écriture KML : ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun saveToKml(latitude: Double, longitude: Double, timestamp: String) {
+        try {
+            val file = File(getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), getFileName("kml"))
+            val writer = FileWriter(file, true)
+            writer.append("          $longitude,$latitude,0\n")
+            writer.flush()
+            writer.close()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(this, "Erreur écriture KML : ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun stopKml(timestamp: String) {
+        try {
+            val file = File(getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), getFileName("kml"))
+            val writer = FileWriter(file, true)
+            writer.append("        </coordinates>\n")
+            writer.append("      </LineString>\n")
+            writer.append("    </Placemark>\n")
+            writer.append("<!-- Arrêt de la marche $timestamp -->\n")
+            if (!isRecording) {
+                writer.append("  </Document>\n")
+                writer.append("</kml>\n")
+            }
+            writer.flush()
+            writer.close()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(this, "Erreur écriture KML : ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun shareFiles() {
+        val intents = mutableListOf<Intent>()
+        if (useCsv) {
+            val csvFile = File(getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), getFileName("csv"))
+            if (csvFile.exists()) {
+                val csvUri = FileProvider.getUriForFile(this, "${packageName}.fileprovider", csvFile)
+                intents.add(Intent(Intent.ACTION_SEND).apply {
+                    type = "text/csv"
+                    putExtra(Intent.EXTRA_STREAM, csvUri)
+                    putExtra(Intent.EXTRA_SUBJECT, "Fichier CSV GPS Logger")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                })
+            }
+        }
+        if (useKml) {
+            val kmlFile = File(getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), getFileName("kml"))
+            if (kmlFile.exists()) {
+                val kmlUri = FileProvider.getUriForFile(this, "${packageName}.fileprovider", kmlFile)
+                intents.add(Intent(Intent.ACTION_SEND).apply {
+                    type = "application/vnd.google-earth.kml+xml"
+                    putExtra(Intent.EXTRA_STREAM, kmlUri)
+                    putExtra(Intent.EXTRA_SUBJECT, "Fichier KML GPS Logger")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                })
+            }
+        }
+        if (intents.isNotEmpty()) {
+            val chooserIntent = Intent.createChooser(intents.removeAt(0), "Partager les fichiers")
+            chooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, intents.toTypedArray())
+            startActivity(chooserIntent)
         } else {
-            Toast.makeText(this, "Aucun fichier CSV à partager", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Aucun fichier à partager", Toast.LENGTH_LONG).show()
         }
     }
 
