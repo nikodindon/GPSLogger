@@ -1,12 +1,43 @@
 package com.example.gpslogger
 
+import android.os.Parcel
+import android.os.Parcelable
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 
-data class PointData(val timestamp: String, val latitude: Double, val longitude: Double, val speed: Float, val altitude: Double)
+data class PointData(
+    val timestamp: String,
+    val latitude: Double,
+    val longitude: Double,
+    val speed: Float,
+    val altitude: Double
+) : Parcelable {
+    constructor(parcel: Parcel) : this(
+        parcel.readString() ?: "",
+        parcel.readDouble(),
+        parcel.readDouble(),
+        parcel.readFloat(),
+        parcel.readDouble()
+    )
+
+    override fun writeToParcel(parcel: Parcel, flags: Int) {
+        parcel.writeString(timestamp)
+        parcel.writeDouble(latitude)
+        parcel.writeDouble(longitude)
+        parcel.writeFloat(speed)
+        parcel.writeDouble(altitude)
+    }
+
+    override fun describeContents(): Int = 0
+
+    companion object CREATOR : Parcelable.Creator<PointData> {
+        override fun createFromParcel(parcel: Parcel): PointData = PointData(parcel)
+        override fun newArray(size: Int): Array<PointData?> = arrayOfNulls(size)
+    }
+}
 
 class PointsAdapter(private val points: MutableList<PointData>) : RecyclerView.Adapter<PointsAdapter.ViewHolder>() {
 

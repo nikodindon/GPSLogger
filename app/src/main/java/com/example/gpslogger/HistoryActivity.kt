@@ -4,9 +4,14 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
+import android.view.View
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.ImageButton
+import android.widget.Spinner
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -23,7 +28,11 @@ class HistoryActivity : AppCompatActivity() {
 
     private lateinit var recyclerView: RecyclerView
     private lateinit var shareAllButton: Button
-    private lateinit var backButton: ImageButton // Nouveau bouton
+    private lateinit var backButton: ImageButton
+    private lateinit var purgeButton: ImageButton
+    private lateinit var filterSpinner: Spinner
+    private lateinit var adapter: HistoryAdapter
+    private lateinit var allFiles: List<File>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,6 +41,8 @@ class HistoryActivity : AppCompatActivity() {
         recyclerView = findViewById(R.id.history_recycler_view)
         shareAllButton = findViewById(R.id.share_all_button)
         backButton = findViewById(R.id.back_button)
+        purgeButton = findViewById(R.id.purge_button)
+        filterSpinner = findViewById(R.id.filter_spinner)
 
         val documentsDir = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS)
         val musicDir = getExternalFilesDir(Environment.DIRECTORY_MUSIC)
@@ -41,8 +52,30 @@ class HistoryActivity : AppCompatActivity() {
         musicDir?.listFiles { file -> file.extension == "mp3" }?.let { files.addAll(it) }
         picturesDir?.listFiles { file -> file.extension == "png" }?.let { files.addAll(it) }
 
+        // Trier les fichiers par date de dernière modification, plus récent en haut
+        allFiles = files.sortedByDescending { it.lastModified() }
+
+        adapter = HistoryAdapter(this, files, allFiles)
         recyclerView.layoutManager = LinearLayoutManager(this)
-        recyclerView.adapter = HistoryAdapter(this, files)
+        recyclerView.adapter = adapter
+
+        // Configuration du Spinner
+        ArrayAdapter.createFromResource(
+            this,
+            R.array.file_filter_options,
+            android.R.layout.simple_spinner_item
+        ).also { adapter ->
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            filterSpinner.adapter = adapter
+        }
+        filterSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long) {
+                val selectedType = parent.getItemAtPosition(position).toString()
+                adapter.filterByType(selectedType)
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>) {}
+        }
 
         shareAllButton.setOnClickListener {
             if (files.isNotEmpty()) {
@@ -53,7 +86,32 @@ class HistoryActivity : AppCompatActivity() {
         }
 
         backButton.setOnClickListener {
-            finish() // Retour à l’écran précédent (MainActivity)
+            finish()
+        }
+
+        purgeButton.setOnClickListener {
+            if (allFiles.isNotEmpty()) {
+                AlertDialog.Builder(this)
+                    .setTitle("Confirm Purge")
+                    .setMessage("Are you sure you want to delete all ${allFiles.size} files?")
+                    .setPositiveButton("Yes") { _, _ ->
+                        var success = true
+                        allFiles.forEach { file ->
+                            if (!file.delete()) success = false
+                        }
+                        if (success) {
+                            files.clear()
+                            adapter.notifyDataSetChanged()
+                            Toast.makeText(this, "All files deleted", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(this, "Failed to delete some files", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    .setNegativeButton("No", null)
+                    .show()
+            } else {
+                Toast.makeText(this, "No files to purge", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 

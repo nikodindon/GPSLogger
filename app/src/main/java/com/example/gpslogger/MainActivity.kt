@@ -12,8 +12,8 @@ import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.view.View
-import android.widget.ImageButton
 import android.widget.Button
+import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -22,6 +22,9 @@ import androidx.core.content.FileProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -39,10 +42,14 @@ import java.util.Locale
 class MainActivity : AppCompatActivity() {
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
-    private val locationHandler = Handler(Looper.getMainLooper())
     private val timerHandler = Handler(Looper.getMainLooper())
+    private lateinit var locationCallback: LocationCallback
+    private val locationRequest = LocationRequest.create().apply {
+        interval = 1000
+        fastestInterval = 500
+        priority = LocationRequest.PRIORITY_HIGH_ACCURACY
+    }
     private val LOCATION_PERMISSION_REQUEST_CODE = 1
-    private var isRecording = false
     private lateinit var startStopButton: ImageButton
     private lateinit var shareButton: ImageButton
     private lateinit var backButton: ImageButton
@@ -50,11 +57,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var noteButton: ImageButton
     private lateinit var recenterButton: Button
     private lateinit var detailButton: Button
-    private lateinit var map: MapView
+    private var map: MapView? = null // Nullable pour éviter des crashs
     private lateinit var statsText: TextView
     private lateinit var pointsRecyclerView: RecyclerView
     private val points = mutableListOf<GeoPoint>()
-    private val pointDataList = mutableListOf<PointData>()
     private lateinit var pointsAdapter: PointsAdapter
     private var startTime: Long = 0
     private var totalDistance: Float = 0f
@@ -65,19 +71,23 @@ class MainActivity : AppCompatActivity() {
     private var totalSpeed: Float = 0f
     private var speedCount: Int = 0
     private var detailsVisible = false
+    private var lastToastTime: Long = 0
 
-    private val locationRunnable = object : Runnable {
-        override fun run() {
-            if (isRecording) {
-                getLocation()
-                locationHandler.postDelayed(this, 10000)
-            }
-        }
+    companion object {
+        val pointDataList = mutableListOf<PointData>()
+        var isRecordingGlobally = false
+        private val pointsGlobal = mutableListOf<GeoPoint>()
+        private var startTimeGlobal: Long = 0
+        private var totalDistanceGlobal: Float = 0f
+        private var currentSpeedGlobal: Float = 0f
+        private var maxSpeedGlobal: Float = 0f
+        private var totalSpeedGlobal: Float = 0f
+        private var speedCountGlobal: Int = 0
     }
 
     private val timerRunnable = object : Runnable {
         override fun run() {
-            if (isRecording) {
+            if (isRecordingGlobally) {
                 updateStats()
                 timerHandler.postDelayed(this, 1000)
             }
@@ -104,18 +114,51 @@ class MainActivity : AppCompatActivity() {
         statsText = findViewById(R.id.stats_text)
         pointsRecyclerView = findViewById(R.id.points_recycler_view)
 
-        map.setTileSource(TileSourceFactory.MAPNIK)
-        map.setBuiltInZoomControls(true)
-        map.setMultiTouchControls(true)
-        map.controller.setZoom(15.0)
-        map.controller.setCenter(GeoPoint(0.0, 0.0))
+        map?.let { safeMap ->
+            safeMap.setTileSource(TileSourceFactory.MAPNIK)
+            safeMap.setBuiltInZoomControls(true)
+            safeMap.setMultiTouchControls(true)
+            safeMap.controller.setZoom(15.0)
+            safeMap.controller.setCenter(GeoPoint(0.0, 0.0))
+        }
 
         pointsAdapter = PointsAdapter(pointDataList)
         pointsRecyclerView.layoutManager = LinearLayoutManager(this)
         pointsRecyclerView.adapter = pointsAdapter
 
+        locationCallback = object : LocationCallback() {
+            override fun onLocationResult(locationResult: LocationResult) {
+                super.onLocationResult(locationResult)
+                locationResult.lastLocation?.let { location ->
+                    processLocation(location)
+                } ?: Toast.makeText(this@MainActivity, "Position unavailable", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        // Restaurer l’état global
+        startTime = startTimeGlobal
+        totalDistance = totalDistanceGlobal
+        currentSpeed = currentSpeedGlobal
+        maxSpeed = maxSpeedGlobal
+        totalSpeed = totalSpeedGlobal
+        speedCount = speedCountGlobal
+        points.clear()
+        points.addAll(pointsGlobal)
+
+        if (savedInstanceState != null) {
+            detailsVisible = savedInstanceState.getBoolean("detailsVisible", false)
+        }
+
+        if (isRecordingGlobally) {
+            startStopButton.setImageResource(R.drawable.ic_stop)
+            // Les mises à jour de localisation seront relancées dans onResume
+            timerHandler.post(timerRunnable)
+        } else {
+            startStopButton.setImageResource(R.drawable.ic_play)
+        }
+
         startStopButton.setOnClickListener {
-            if (isRecording) {
+            if (isRecordingGlobally) {
                 stopRecording()
             } else {
                 if (checkPermissions()) {
@@ -131,7 +174,6 @@ class MainActivity : AppCompatActivity() {
         backButton.setOnClickListener {
             val intent = Intent(this, WelcomeActivity::class.java)
             startActivity(intent)
-            finish()
         }
 
         snapshotButton.setOnClickListener { shareMapSnapshot() }
@@ -151,10 +193,12 @@ class MainActivity : AppCompatActivity() {
 
         recenterButton.setOnClickListener {
             if (points.isNotEmpty()) {
-                val lastPoint = points.last()
-                map.controller.setCenter(lastPoint)
-                map.controller.setZoom(15.0)
-                map.invalidate()
+                map?.let { safeMap ->
+                    val lastPoint = points.last()
+                    safeMap.controller.setCenter(lastPoint)
+                    safeMap.controller.setZoom(15.0)
+                    safeMap.invalidate()
+                }
             } else {
                 Toast.makeText(this, "No position recorded", Toast.LENGTH_SHORT).show()
             }
@@ -204,30 +248,33 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startRecording() {
-        isRecording = true
+        isRecordingGlobally = true
         startStopButton.setImageResource(R.drawable.ic_stop)
-        startTime = System.currentTimeMillis()
-        points.clear()
+        if (startTimeGlobal == 0L) startTimeGlobal = System.currentTimeMillis()
+        startTime = startTimeGlobal
+        pointsGlobal.clear()
         pointDataList.clear()
-        totalDistance = 0f
-        currentSpeed = 0f
-        maxSpeed = 0f
-        totalSpeed = 0f
-        speedCount = 0
-        getLocation()
-        locationHandler.postDelayed(locationRunnable, 10000)
-        timerHandler.post(timerRunnable)
+        totalDistanceGlobal = 0f
+        currentSpeedGlobal = 0f
+        maxSpeedGlobal = 0f
+        totalSpeedGlobal = 0f
+        speedCountGlobal = 0
 
         val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
         if (useCsv) saveToCsv("Start of the walk $timestamp", "", "")
         if (useKml) startKml(timestamp)
+
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
+        }
+        timerHandler.post(timerRunnable)
         Toast.makeText(this, "Recording started", Toast.LENGTH_SHORT).show()
     }
 
     private fun stopRecording() {
-        isRecording = false
+        isRecordingGlobally = false
         startStopButton.setImageResource(R.drawable.ic_play)
-        locationHandler.removeCallbacks(locationRunnable)
+        fusedLocationClient.removeLocationUpdates(locationCallback)
         timerHandler.removeCallbacks(timerRunnable)
 
         val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
@@ -237,60 +284,82 @@ class MainActivity : AppCompatActivity() {
         }
         if (useKml) stopKml(timestamp)
         Toast.makeText(this, "Recording stopped", Toast.LENGTH_SHORT).show()
+
+        // Lancer SummaryActivity avec les stats
+        val intent = Intent(this, SummaryActivity::class.java).apply {
+            putExtra("distance", totalDistanceGlobal)
+            putExtra("duration", System.currentTimeMillis() - startTimeGlobal)
+            putExtra("maxSpeed", maxSpeedGlobal * 3.6f)
+            putExtra("avgSpeed", if (speedCountGlobal > 0) (totalSpeedGlobal / speedCountGlobal) * 3.6f else 0f)
+        }
+        startActivity(intent)
+
+        startTimeGlobal = 0
+        totalDistanceGlobal = 0f
+        currentSpeedGlobal = 0f
+        maxSpeedGlobal = 0f
+        totalSpeedGlobal = 0f
+        speedCountGlobal = 0
+        pointsGlobal.clear()
     }
 
-    private fun getLocation() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            return
+    private fun processLocation(location: Location) {
+        val latitude = location.latitude
+        val longitude = location.longitude
+        val altitude = location.altitude
+        val speed = location.speed
+        val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+        if (useCsv) saveToCsv(timestamp, latitude.toString(), longitude.toString())
+        if (useKml) saveToKml(latitude, longitude, timestamp)
+
+        val point = GeoPoint(latitude, longitude)
+        if (pointsGlobal.isNotEmpty()) {
+            val lastPoint = pointsGlobal.last()
+            totalDistanceGlobal += calculateDistance(lastPoint, point)
         }
-        fusedLocationClient.lastLocation
-            .addOnSuccessListener { location: Location? ->
-                location?.let {
-                    val latitude = it.latitude
-                    val longitude = it.longitude
-                    val altitude = it.altitude
-                    val speed = it.speed
-                    val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
-                    if (useCsv) saveToCsv(timestamp, latitude.toString(), longitude.toString())
-                    if (useKml) saveToKml(latitude, longitude, timestamp)
+        pointsGlobal.add(point)
+        points.clear()
+        points.addAll(pointsGlobal)
+        pointDataList.add(PointData(timestamp, latitude, longitude, speed * 3.6f, altitude))
+        if (detailsVisible) {
+            pointsAdapter.notifyItemInserted(pointDataList.size - 1)
+            pointsRecyclerView.scrollToPosition(pointDataList.size - 1)
+        }
 
-                    val point = GeoPoint(latitude, longitude)
-                    if (points.isNotEmpty()) {
-                        val lastPoint = points.last()
-                        totalDistance += calculateDistance(lastPoint, point)
-                    }
-                    points.add(point)
-                    pointDataList.add(PointData(timestamp, latitude, longitude, speed * 3.6f, altitude))
-                    if (detailsVisible) {
-                        pointsAdapter.notifyItemInserted(pointDataList.size - 1)
-                        pointsRecyclerView.scrollToPosition(pointDataList.size - 1)
-                    }
+        currentSpeedGlobal = speed
+        if (speed > maxSpeedGlobal) maxSpeedGlobal = speed
+        totalSpeedGlobal += speed
+        speedCountGlobal++
 
-                    currentSpeed = speed
-                    if (speed > maxSpeed) maxSpeed = speed
-                    totalSpeed += speed
-                    speedCount++
+        startTime = startTimeGlobal
+        totalDistance = totalDistanceGlobal
+        currentSpeed = currentSpeedGlobal
+        maxSpeed = maxSpeedGlobal
+        totalSpeed = totalSpeedGlobal
+        speedCount = speedCountGlobal
 
-                    val marker = Marker(map)
-                    marker.position = point
-                    marker.title = timestamp
-                    map.overlays.add(marker)
+        // Protéger l'accès à map contre les null
+        map?.let { safeMap ->
+            val marker = Marker(safeMap)
+            marker.position = point
+            marker.title = timestamp
+            safeMap.overlays.add(marker)
 
-                    if (points.size > 1) {
-                        val polyline = Polyline()
-                        polyline.setPoints(points)
-                        polyline.color = 0xFF0000FF.toInt()
-                        map.overlays.add(polyline)
-                    }
-                    map.controller.setCenter(point)
-                    map.invalidate()
-
-                    Toast.makeText(this, "Position: $latitude, $longitude", Toast.LENGTH_SHORT).show()
-                } ?: Toast.makeText(this, "Position unavailable", Toast.LENGTH_SHORT).show()
+            if (points.size > 1) {
+                val polyline = Polyline()
+                polyline.setPoints(points)
+                polyline.color = 0xFF0000FF.toInt()
+                safeMap.overlays.add(polyline)
             }
-            .addOnFailureListener {
-                Toast.makeText(this, "Error: ${it.message}", Toast.LENGTH_SHORT).show()
-            }
+            safeMap.controller.setCenter(point)
+            safeMap.invalidate()
+        }
+
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastToastTime >= 10000) {
+            Toast.makeText(this, "Position: $latitude, $longitude", Toast.LENGTH_SHORT).show()
+            lastToastTime = currentTime
+        }
     }
 
     private fun calculateDistance(point1: GeoPoint, point2: GeoPoint): Float {
@@ -319,31 +388,33 @@ class MainActivity : AppCompatActivity() {
 
     private fun shareMapSnapshot() {
         try {
-            if (map.width <= 0 || map.height <= 0) {
-                Toast.makeText(this, "Map is not yet ready", Toast.LENGTH_SHORT).show()
-                return
-            }
+            map?.let { safeMap ->
+                if (safeMap.width <= 0 || safeMap.height <= 0) {
+                    Toast.makeText(this, "Map is not yet ready", Toast.LENGTH_SHORT).show()
+                    return
+                }
 
-            val bitmap = Bitmap.createBitmap(map.width, map.height, Bitmap.Config.ARGB_8888)
-            val canvas = Canvas(bitmap)
-            map.draw(canvas)
+                val bitmap = Bitmap.createBitmap(safeMap.width, safeMap.height, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(bitmap)
+                safeMap.draw(canvas)
 
-            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-            val file = File(getExternalFilesDir(Environment.DIRECTORY_PICTURES), "GPSLogger_Snapshot_$timestamp.png")
-            FileOutputStream(file).use { out ->
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-                out.flush()
-            }
+                val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+                val file = File(getExternalFilesDir(Environment.DIRECTORY_PICTURES), "GPSLogger_Snapshot_$timestamp.png")
+                FileOutputStream(file).use { out ->
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                    out.flush()
+                }
 
-            val uri = FileProvider.getUriForFile(this, "${packageName}.fileprovider", file)
-            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                type = "image/png"
-                putExtra(Intent.EXTRA_STREAM, uri)
-                putExtra(Intent.EXTRA_SUBJECT, "GPS Logger Snapshot")
-                putExtra(Intent.EXTRA_TEXT, "Here is a snapshot of my current journey.")
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-            startActivity(Intent.createChooser(shareIntent, "Share map snapshot"))
+                val uri = FileProvider.getUriForFile(this, "${packageName}.fileprovider", file)
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "image/png"
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    putExtra(Intent.EXTRA_SUBJECT, "GPS Logger Snapshot")
+                    putExtra(Intent.EXTRA_TEXT, "Here is a snapshot of my current journey.")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                startActivity(Intent.createChooser(shareIntent, "Share map snapshot"))
+            } ?: Toast.makeText(this, "Map is not available", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             e.printStackTrace()
             Toast.makeText(this, "Error sharing: ${e.message}", Toast.LENGTH_LONG).show()
@@ -428,7 +499,7 @@ class MainActivity : AppCompatActivity() {
             writer.append("      </LineString>\n")
             writer.append("    </Placemark>\n")
             writer.append("<!-- End of the walk $timestamp -->\n")
-            if (!isRecording) {
+            if (!isRecordingGlobally) {
                 writer.append("  </Document>\n")
                 writer.append("</kml>\n")
             }
@@ -475,19 +546,33 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        locationHandler.removeCallbacks(locationRunnable)
-        timerHandler.removeCallbacks(timerRunnable)
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean("detailsVisible", detailsVisible)
     }
 
     override fun onResume() {
         super.onResume()
-        map.onResume()
+        map?.onResume()
+        // Relancer les mises à jour de localisation si enregistrement actif
+        if (isRecordingGlobally && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
+        }
     }
 
     override fun onPause() {
         super.onPause()
-        map.onPause()
+        map?.onPause()
+        // Arrêter temporairement les mises à jour de localisation
+        fusedLocationClient.removeLocationUpdates(locationCallback)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (isFinishing && !isRecordingGlobally) {
+            fusedLocationClient.removeLocationUpdates(locationCallback)
+            timerHandler.removeCallbacks(timerRunnable)
+        }
+        map?.onDetach()
     }
 }

@@ -14,12 +14,26 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.AppCompat.Light.NoActionBar">
         <activity
+            android:name=".SummaryActivity"
+            android:exported="false" />
+        <activity
+            android:name=".SummaryActivity.kt"
+            android:exported="false" />
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".SettingsActivity.kt"
+            android:exported="false" />
+        <activity
+            android:name=".MapNoteActivity"
+            android:exported="false" />
+        <activity
             android:name=".NoteActivity"
             android:exported="false" />
         <activity
             android:name=".DonateActivity"
             android:exported="false" />
-
         <activity
             android:name=".HistoryActivity"
             android:exported="false" /> <!-- WelcomeActivity comme activité de démarrage -->
