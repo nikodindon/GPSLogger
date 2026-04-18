@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">GPSLogger</string>
+    <string name="note_title">Note Title</string>
+    <string name="note_description">Description</string>
+    <string name="photo_gallery">Gallery</string>
+    <string name="save_note">Save</string>
+    <string name="remove_photo">Remove</string>
 </resources>
