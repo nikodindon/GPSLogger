@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew assembleDebug --info)",
+      "Bash(dos2unix gradlew *)",
+      "Bash(bash ./gradlew assembleDebug)",
+      "Bash(apt update *)",
+      "Bash(apt install *)",
+      "Bash(curl -s \"https://get.sdkman.io\")",
+      "Bash(bash)",
+      "Bash(mkdir -p ~/.local/java)",
+      "Read(//home/niko/.local/**)",
+      "Bash(wget -q https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.21%2B9/OpenJDK11U-jdk_x64_linux_hotspot_11.0.21_9.tar.gz)",
+      "Bash(tar -xzf OpenJDK11U-jdk_x64_linux_hotspot_11.0.21_9.tar.gz)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git config *)",
+      "Bash(git push *)",
+      "Bash(gh --version)",
+      "Bash(curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg)",
+      "Bash(gpg --dearmor -o ~/.local/share/keyrings/githubcli-archive-keyring.gpg)"
+    ]
+  }
+}

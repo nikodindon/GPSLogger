@@ -43,13 +43,14 @@
 
     <TextView
         android:id="@+id/stats_text"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Distance : 0 m\nDurée : 00:00\nVitesse : 0 km/h\nVmax : 0 km/h\nVmoy : 0 km/h\nAltitude : 0 m"
+        android:text="Distance: 0.00 km\nDuration: 00:00\nSpeed: 0.0 km/h\nVmax: 0.0 km/h\nVavg: 0.0 km/h\nAltitude: 0.0 m"
         android:textSize="16sp"
         android:textColor="#FFFFFF"
-        android:layout_gravity="center_horizontal"
-        android:padding="8dp" />
+        android:gravity="center"
+        android:padding="8dp"
+        android:background="#80000000" />
 
     <!-- Remplace le Button start_stop_button par ceci -->
     <ImageButton
@@ -101,7 +102,8 @@
             android:background="?android:attr/selectableItemBackground"
             android:contentDescription="Retour à l’écran d’accueil"
             android:padding="12dp"
-            android:layout_marginEnd="16dp" />
+            android:layout_marginEnd="16dp"
+            android:tint="#FFFFFF" />
 
         <ImageButton
             android:id="@+id/share_button"
@@ -111,7 +113,8 @@
             android:background="?android:attr/selectableItemBackground"
             android:contentDescription="Partager le fichier CSV"
             android:padding="12dp"
-            android:layout_marginEnd="16dp" />
+            android:layout_marginEnd="16dp"
+            android:tint="#FFFFFF" />
 
         <ImageButton
             android:id="@+id/snapshot_button"
@@ -121,15 +124,17 @@
             android:background="?android:attr/selectableItemBackground"
             android:contentDescription="Capturer un instantané de la carte"
             android:padding="12dp"
-            android:layout_marginEnd="16dp" />
+            android:layout_marginEnd="16dp"
+            android:tint="#FFFFFF" />
 
         <ImageButton
             android:id="@+id/note_button"
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:src="@android:drawable/ic_menu_edit"
-        android:background="?android:attr/selectableItemBackground"
-        android:contentDescription="Ajouter une note"
-        android:padding="12dp" />
+            android:background="?android:attr/selectableItemBackground"
+            android:contentDescription="Ajouter une note"
+            android:padding="12dp"
+            android:tint="#FFFFFF" />
     </LinearLayout>
 </LinearLayout>

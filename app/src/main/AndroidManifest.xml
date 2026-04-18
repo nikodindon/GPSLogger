@@ -17,13 +17,7 @@
             android:name=".SummaryActivity"
             android:exported="false" />
         <activity
-            android:name=".SummaryActivity.kt"
-            android:exported="false" />
-        <activity
             android:name=".SettingsActivity"
-            android:exported="false" />
-        <activity
-            android:name=".SettingsActivity.kt"
             android:exported="false" />
         <activity
             android:name=".MapNoteActivity"
@@ -36,7 +30,7 @@
             android:exported="false" />
         <activity
             android:name=".HistoryActivity"
-            android:exported="false" /> <!-- WelcomeActivity comme activité de démarrage -->
+            android:exported="false" />
         <activity
             android:name=".WelcomeActivity"
             android:exported="true">
@@ -45,7 +39,7 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity> <!-- MainActivity sans intent-filter -->
+        </activity>
         <activity
             android:name=".MainActivity"
             android:exported="false" />

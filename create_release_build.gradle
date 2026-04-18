@@ -1,0 +1,22 @@
+// Gradle task to create release builds for Play Store
+// Run: ./gradlew assembleRelease
+
+android {
+    // Release configuration is already in build.gradle
+    
+    // Alternative: Create a release build using command line
+    // ./gradlew clean assembleRelease
+}
+
+// Additional release tasks
+task generateReleaseAssets {
+    doLast {
+        println 'Generating release assets...'
+        // Generate icons, screenshots, etc.
+    }
+}
+
+task createPlayStoreBundle(type: Bundle) {
+    archiveClassifier = 'release'
+    // Generates AAB for Play Store
+}
